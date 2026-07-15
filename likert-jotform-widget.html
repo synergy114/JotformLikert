@@ -12,6 +12,8 @@
       font-family: 'Inter', system-ui, sans-serif;
       background: transparent;
       padding: 8px 0;
+      width: 100%;
+      overflow-x: hidden;
     }
 
     #options-row {
@@ -42,8 +44,8 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 14px 8px;
+      gap: 4px;
+      padding: 8px 4px;
       text-align: center;
     }
 
@@ -53,8 +55,8 @@
       flex-direction: row;
       align-items: center;
       justify-content: flex-start;
-      gap: 10px;
-      padding: 12px 16px;
+      gap: 8px;
+      padding: 8px 12px;
       text-align: left;
     }
 
@@ -93,12 +95,12 @@
   // ── Default settings (overridden by JotForm widget settings) ──
   const defaults = {
     labels:        ["Strongly Agree","Agree","Neutral","Disagree","Strongly Disagree"],
-    agreeColor:    "#9ca3af",
-    neutralColor:  "#9ca3af",
-    disagreeColor: "#9ca3af",
+    agreeColor:    "#80baac",
+    neutralColor:  "#eae1d8",
+    disagreeColor: "#fd5000",
     borderRadius:  12,
     borderWidth:   2,
-    fontSize:      14,
+    fontSize:      13,
     showIcons:     false,
   };
 
@@ -193,7 +195,27 @@
 
     document.getElementById("hint-left").textContent  = "← " + (cfg.labels[4] || "");
     document.getElementById("hint-right").textContent = (cfg.labels[0] || "") + " →";
+
+    // Tell JotForm the actual height so iframe resizes automatically
+    requestAnimationFrame(reportHeight);
   }
+
+  function reportHeight() {
+    var h = document.body.scrollHeight;
+    // Via JotForm SDK
+    if (typeof JFCustomWidget !== "undefined") {
+      JFCustomWidget.requestFrameResize({ height: h });
+    }
+    // Via postMessage fallback (works even before SDK loads)
+    try {
+      window.parent.postMessage(JSON.stringify({ type: "setHeight", value: h }), "*");
+    } catch(e) {}
+  }
+
+  // Also report height on window resize (handles phone rotation etc.)
+  window.addEventListener("resize", function() {
+    requestAnimationFrame(reportHeight);
+  });
 
   // ── Always render immediately with defaults ───────────────
   render();
