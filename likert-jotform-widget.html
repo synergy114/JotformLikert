@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Likert Scale Widget</title>
+
+  <!-- JotForm Widget SDK -->
+  <script src="https://js.jotform.com/JotFormCustomWidget.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: transparent;
+      padding: 8px 0;
+    }
+
+    #options-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    #options-col {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .opt-btn {
+      background: white;
+      color: #1e293b;
+      border-style: solid;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.16s ease;
+      user-select: none;
+      font-family: inherit;
+    }
+
+    .opt-btn.row-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px 8px;
+      text-align: center;
+    }
+
+    .opt-btn.col-btn {
+      width: 100%;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      padding: 12px 16px;
+      text-align: left;
+    }
+
+    .opt-btn.selected {
+      font-weight: 700;
+      transform: scale(1.04);
+    }
+
+    .opt-icon { font-size: 18px; }
+
+    #scale-hint {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    @media (max-width: 480px) {
+      #options-row { display: none !important; }
+      #options-col { display: flex !important; }
+      #scale-hint  { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="options-row"></div>
+  <div id="options-col"></div>
+  <div id="scale-hint">
+    <span id="hint-left"></span>
+    <span id="hint-right"></span>
+  </div>
+
+<script>
+  // ── Default settings (overridden by JotForm widget settings) ──
+  const defaults = {
+    labels:        ["Strongly Agree","Agree","Neutral","Disagree","Strongly Disagree"],
+    agreeColor:    "#9ca3af",
+    neutralColor:  "#9ca3af",
+    disagreeColor: "#9ca3af",
+    borderRadius:  12,
+    borderWidth:   2,
+    fontSize:      14,
+    showIcons:     false,
+  };
+
+  const ICONS = ["😄","🙂","😐","🙁","😠"];
+  const DESKTOP_ORDER = [4, 3, 2, 1, 0]; // left=Strongly Disagree → right=Strongly Agree
+  const MOBILE_ORDER  = [0, 1, 2, 3, 4]; // top=Strongly Agree
+
+  let cfg = { ...defaults };
+  let selected = null;
+
+  // ── Color helpers ──────────────────────────────────────────
+  function parseRgb(c) {
+    if (!c) return [156,163,175];
+    if (c.startsWith("rgb")) return c.match(/\d+/g).map(Number);
+    return [parseInt(c.slice(1,3),16), parseInt(c.slice(3,5),16), parseInt(c.slice(5,7),16)];
+  }
+  function lerp(c1, c2, t) {
+    const [r1,g1,b1] = parseRgb(c1), [r2,g2,b2] = parseRgb(c2);
+    return `rgb(${Math.round(r1+(r2-r1)*t)},${Math.round(g1+(g2-g1)*t)},${Math.round(b1+(b2-b1)*t)})`;
+  }
+  function toHex(c) {
+    if (!c) return "#9ca3af";
+    if (c.startsWith("#")) return c;
+    return "#" + parseRgb(c).map(n => n.toString(16).padStart(2,"0")).join("");
+  }
+  function autoText(c) {
+    const [r,g,b] = parseRgb(c);
+    return (0.299*r + 0.587*g + 0.114*b)/255 > 0.45 ? "#1e293b" : "#ffffff";
+  }
+  function getScale() {
+    const a = cfg.agreeColor, n = cfg.neutralColor, d = cfg.disagreeColor;
+    return [a, lerp(a,n,0.5), n, lerp(n,d,0.5), d];
+  }
+
+  // ── Render ─────────────────────────────────────────────────
+  function makeBtn(idx, layout) {
+    const scale = getScale();
+    const bg = scale[idx];
+    const isSelected = selected === idx;
+
+    const btn = document.createElement("button");
+    btn.className = `opt-btn ${layout === "row" ? "row-btn" : "col-btn"}${isSelected ? " selected" : ""}`;
+    btn.setAttribute("aria-pressed", String(isSelected));
+    btn.setAttribute("aria-label", cfg.labels[idx] || "");
+    btn.style.borderColor    = bg;
+    btn.style.borderWidth    = cfg.borderWidth + "px";
+    btn.style.borderStyle    = "solid";
+    btn.style.borderRadius   = cfg.borderRadius + "px";
+    btn.style.fontSize       = cfg.fontSize + "px";
+
+    if (isSelected) {
+      btn.style.backgroundColor = bg;
+      btn.style.color           = autoText(bg);
+      btn.style.boxShadow       = `0 0 0 ${cfg.borderWidth + 2}px ${toHex(bg)}55`;
+    } else {
+      btn.style.backgroundColor = "white";
+      btn.style.color           = "#1e293b";
+      btn.style.boxShadow       = "0 1px 3px rgba(0,0,0,0.06)";
+    }
+
+    if (cfg.showIcons) {
+      const icon = document.createElement("span");
+      icon.className   = "opt-icon";
+      icon.textContent = ICONS[idx];
+      btn.appendChild(icon);
+    }
+
+    const txt = document.createElement("span");
+    txt.textContent = cfg.labels[idx] || "";
+    btn.appendChild(txt);
+
+    btn.addEventListener("click", () => {
+      selected = idx;
+      render();
+      // Report value back to JotForm (only when running inside JotForm)
+      if (typeof JFCustomWidget !== "undefined") {
+        JFCustomWidget.sendData({ valid: true, value: cfg.labels[idx] });
+      }
+    });
+
+    return btn;
+  }
+
+  function render() {
+    const row = document.getElementById("options-row");
+    const col = document.getElementById("options-col");
+    row.innerHTML = "";
+    col.innerHTML = "";
+
+    DESKTOP_ORDER.forEach(idx => row.appendChild(makeBtn(idx, "row")));
+    MOBILE_ORDER.forEach(idx  => col.appendChild(makeBtn(idx, "col")));
+
+    document.getElementById("hint-left").textContent  = "← " + (cfg.labels[4] || "");
+    document.getElementById("hint-right").textContent = (cfg.labels[0] || "") + " →";
+  }
+
+  // ── JotForm widget lifecycle ───────────────────────────────
+  if (typeof JFCustomWidget !== "undefined") {
+
+    JFCustomWidget.subscribe("ready", function() {
+      const s = JFCustomWidget.getWidgetSetting;
+      cfg.labels = [
+        s("label0") || defaults.labels[0],
+        s("label1") || defaults.labels[1],
+        s("label2") || defaults.labels[2],
+        s("label3") || defaults.labels[3],
+        s("label4") || defaults.labels[4],
+      ];
+      cfg.agreeColor    = s("agreeColor")    || defaults.agreeColor;
+      cfg.neutralColor  = s("neutralColor")  || defaults.neutralColor;
+      cfg.disagreeColor = s("disagreeColor") || defaults.disagreeColor;
+      cfg.borderRadius  = parseInt(s("borderRadius") || defaults.borderRadius);
+      cfg.borderWidth   = parseInt(s("borderWidth")  || defaults.borderWidth);
+      cfg.fontSize      = parseInt(s("fontSize")     || defaults.fontSize);
+      cfg.showIcons     = s("showIcons") === "true";
+      render();
+    });
+
+    // Restore saved value when form is edited / returned to
+    JFCustomWidget.subscribe("populate", function(data) {
+      if (data && data.value) {
+        const idx = cfg.labels.indexOf(data.value);
+        if (idx !== -1) { selected = idx; render(); }
+      }
+    });
+
+    // JotForm asks "is this field valid?" (e.g. if marked required)
+    JFCustomWidget.subscribe("submit", function() {
+      JFCustomWidget.sendSubmit(
+        selected !== null
+          ? { valid: true,  value: cfg.labels[selected] }
+          : { valid: false, value: "" }
+      );
+    });
+
+  } else {
+    // ── Standalone / preview mode — render with defaults ──
+    render();
+  }
+</script>
+</body>
+</html>
